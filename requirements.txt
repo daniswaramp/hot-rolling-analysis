@@ -1,0 +1,10 @@
+# The model needs these four, and a Colab or standard Jupyter image already carries them all, so
+# nothing has to be installed to run the notebook there.
+numpy>=1.26
+scipy>=1.11
+pandas>=2.0
+matplotlib>=3.8
+plotly>=5.18
+
+# For the notebook itself, and for the headless re-run that produced the stored outputs.
+jupyter
