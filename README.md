@@ -11,7 +11,7 @@ flattening it.
 
 ## Run it
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daniswaramp/hot-rolling-analysis/blob/main/rolling_mill_pass_simulation.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daniswaramp/steel-plate-roll-force-model/blob/main/rolling_mill_pass_simulation.ipynb)
 
 Colab already has numpy, scipy, pandas, matplotlib and plotly, which is the whole import list. A full
 run takes about fifteen seconds: seven passes, each solved station by station through the bite, with
@@ -67,35 +67,54 @@ the radius the strip meets. Only the crown of each roll is in frame; every lengt
 
 ## The equations
 
-The bite is the von Karman slab equilibrium, with $x$ measured from the exit plane, $k' = 1.155\,\bar\sigma$
-the plane strain yield stress and the friction shear $\tau = \min(\mu p,\; 0.45\,k')$:
+The bite is the von Karman slab equilibrium [1], with $x$ measured from the exit plane, $k' = 1.155\,\bar\sigma$
+the plane strain yield stress and the friction shear $\tau = \min(\mu p,\; 0.45\,k')$. The pressure field, the
+friction hill and the classical bounds quoted further down follow the treatment in [2]:
 
-$$\frac{dp}{dx} = \frac{dk'}{dx} + \frac{2k'\tan\varphi \mp 2\tau}{h}$$
+$$\frac{dp}{dx} = \frac{dk'}{dx} + \frac{2k'\tan\varphi \mp 2\tau}{h} \qquad [1]$$
 
 minus on the entry side, plus on the exit side. The $dk'/dx$ term is the flow stress changing along one
 arc, and it is not optional here: the yield stress climbs tens of MPa as the strain accumulates and
-falls again where DRX softens the austenite. Dropped, the pressure dips below the local yield stress
-through the middle of the bite and the strip is no longer in horizontal equilibrium. Both branches are
-marched from their own end plane, where $p = k'$, and the neutral point is where they meet.
+falls again where DRX softens the austenite. It is the varying-flow-stress generalisation of the 1925
+equation, which assumed $k$ constant, and it is given in this form in [2]. Dropped, the pressure dips
+below the local yield stress through the middle of the bite and the strip is no longer in horizontal
+equilibrium. Both branches are marched from their own end plane, where $p = k'$, and the neutral point
+is where they meet.
 
 The geometry, with the flattened radius $R'$ and the draft $\Delta h = h_0 - h_f$:
 
 $$h(\varphi) = h_f + 2R'(1-\cos\varphi), \quad x = R'\sin\varphi, \quad
 L_d = \sqrt{R'\Delta h - \Delta h^2/4}, \quad \cos\alpha = 1 - \frac{\Delta h}{2R'}, \quad
-\Delta h_{max} = \mu^2 R'$$
+\Delta h_{max} = \mu^2 R' \qquad [2]$$
 
-$L_d$ the arc of contact, $\alpha$ the bite angle, and Hitchcock flattening $R' = R(1 + C F'/\Delta h)$
-with $C = 2.2\times10^{-5}$ mm²/N and $F'$ the force per unit width.
+$L_d$ the arc of contact, $\alpha$ the bite angle, and Hitchcock flattening $R' = R(1 + C F'/\Delta h)$ [3]
+with $C = 2.2\times10^{-5}$ mm²/N and $F'$ the force per unit width. The flattening relation is
+Hitchcock's; the value of $C$ is the one this model uses.
 
 The flow stress and the DRX thresholds, with $Z = \dot\varepsilon \exp(Q/RT)$, $Q = 312$ kJ/mol,
 $A = 3.0\times10^{11}$, $\alpha = 0.012$, $n = 4.5$:
 
-$$\sigma_p = \frac{1}{\alpha}\sinh^{-1}\left[\left(\frac{Z}{A}\right)^{1/n}\right], \qquad
-\varepsilon_c = 4.9\times10^{-4} d_0^{0.5} Z^{0.15}(1 + 40\,\mathrm{Nb}), \qquad
-\varepsilon_p = \varepsilon_c/0.8$$
+$$\sigma_p = \frac{1}{\alpha}\sinh^{-1}\left[\left(\frac{Z}{A}\right)^{1/n}\right] \qquad [4], [5]$$
+
+The hyperbolic sine law is Sellars and Tegart [4]. The constants are those of [5]: $\alpha$ and $Q$ as
+tabulated there for C-Mn steel, and $A$ and $n$ close to its Nb-bearing set, which prints $3.43\times
+10^{11}$ with $n = 4.5$ against the $3.0\times10^{11}$ used here. The C-Mn base steel of the same study
+prints $5.2\times10^{11}$ with $n = 4.93$ for the dynamic-recrystallization steady state, which puts the
+peak stress about 10 per cent lower at the temperatures and rates of this schedule. The consequence of
+that choice is in the limits below.
+
+$$\varepsilon_c = 4.9\times10^{-4} d_0^{0.5} Z^{0.15}(1 + 40\,\mathrm{Nb}), \qquad
+\varepsilon_p = \varepsilon_c/0.8 \qquad [6]$$
+
+The critical strain follows the C-Mn form of Sellars [6], and the ratio $\varepsilon_p =
+\varepsilon_c/0.8$ is also his. Note that the same coefficient circulates in the literature attached to
+the peak strain rather than the critical strain; which variable it defines is decided by the 0.8
+factor, and this notebook takes it as the critical strain. The $(1 + 40\,\mathrm{Nb})$ factor is this
+grade's own addition: no source stating that multiplicative form was found, and it is listed among the
+limits below.
 
 $$X_d = 1 - \exp\left[-0.693\left(\frac{\varepsilon - \varepsilon_c}{\varepsilon_p}\right)^2\right],
-\qquad \sigma = \sigma_h(\varepsilon) - X_d\,(\sigma_p - \sigma_{ss})$$
+\qquad \sigma = \sigma_h(\varepsilon) - X_d\,(\sigma_p - \sigma_{ss}) \qquad [6]$$
 
 The through-thickness strain profile, the strain and the rate at a station are
 
@@ -104,22 +123,45 @@ $$g(s) = m + (1-m)e^{-(s/\delta)^2}, \qquad \bar\varepsilon = \tfrac{2}{\sqrt3}\
 
 with $s$ the distance from the nearest face, $\delta = \kappa\ell$ the penetration depth after an arc
 length $\ell$, and the shape factor $\Delta = h_m/L_d$ entering $m = 1/[1 + 3\max(\Delta-0.4,0)^2]$.
+This profile is this notebook's own. It is not the output of a finite element solution and no source
+states it; $\kappa$ is a free constant set in the inputs.
 
-Between passes the static softening is Hodgson-Gibbs with the Nb term, applied by additivity
+Between passes the static softening is the C-Mn law of Sellars [6] carrying the Nb solute-drag factor
+of Dutta and Sellars [7], applied by the additive rule of Beynon and Sellars [8],
 $X = 1 - \exp(-0.693\theta^2)$, $d\theta/dt = 1/t_{0.5}$:
 
 $$t_{0.5}^{SRX} = 2.5\times10^{-19}\,\varepsilon^{-4} d_0^2
-\exp\left(\frac{300000}{RT}\right)\exp\left[\left(\frac{2.75\times10^5}{T} - 185\right)\mathrm{Nb}\right],
-\qquad t_{0.5}^{MDRX} = 1.1\,Z^{-0.8}\exp\left(\frac{230000}{RT}\right)$$
+\exp\left(\frac{300000}{RT}\right)\exp\left[\left(\frac{2.75\times10^5}{T} - 185\right)\mathrm{Nb}\right]
+\qquad [7]$$
 
-and the non-recrystallization temperature is Boratto,
+$$t_{0.5}^{MDRX} = 1.1\,Z^{-0.8}\exp\left(\frac{230000}{RT}\right) \qquad [9], [10]$$
 
-$$T_{nr} = 887 + 464\,C + (6445\,Nb - 644\sqrt{Nb}) + (732\,V - 230\sqrt{V}) + 890\,Ti + 363\,Al - 357\,Si$$
+The metadynamic half time is as printed by Maccagno, Jonas and Hodgson [9], with the exponent and the
+activation energy confirmed against Hodgson and Gibbs [10]. Beynon and Sellars [8] state the $0.693$
+coefficient with an additive time-temperature treatment and put the Avrami exponent in the range 1 to
+2; the exponent of 2 used here is the top of that range and is this model's choice.
+
+The recrystallized grain sizes are $d = 1.8\times10^3 Z^{-0.15}$ for dynamic recrystallization, as
+compiled in [11], and $d = 1.6\times10^4 Z^{-0.23}$ after metadynamic recrystallization [10]. The static
+form $d_{srx} = 1.1\,d_0^{0.67}\varepsilon^{-0.67}$ has no source either of us could verify and is this
+notebook's own fit. Grain growth is $d^7 - d_0^7 = K_g t \exp(-Q_g/RT)$ with $K_g = 1.5\times10^{27}$
+and $Q_g = 400$ kJ/mol, the C-Mn rows of Hodgson and Gibbs [10].
+
+The non-recrystallization temperature is Boratto [12],
+
+$$T_{nr} = 887 + 464\,C + (6445\,Nb - 644\sqrt{Nb}) + (732\,V - 230\sqrt{V}) + 890\,Ti + 363\,Al - 357\,Si \qquad [12]$$
 
 Composition in weight per cent, temperatures in C, lengths in mm, stress in MPa, time in s. Heat
-enters through the plastic work, $\eta\sigma\dot\varepsilon$ with $\eta = 0.9$, and leaves through the
-roll contact at 20000 W/m²K, radiation and convection between passes, and a 5000 W/m²K spray while
-descaling.
+enters through the plastic work, $\eta\sigma\dot\varepsilon$ with $\eta = 0.9$, the inelastic heat
+fraction a coupled thermal-stress model is normally run with [13], and leaves through the roll contact
+at 20000 W/m²K, radiation and convection between passes, and a 5000 W/m²K spray while descaling. The
+roll-contact figure sits inside the roll-gap range of 15 to 26 kW/m²K measured on a pilot mill [14] and
+inside the 6 to 45 kW/m²K spanned by published values in [15]. The descaling coefficient and the
+emissivity of 0.80 are this model's own values: [15] identifies the descaling coefficient per mill from
+thermocouple data and states it transfers poorly to another mill, and a fixed emissivity for a hot
+plate is not something those records fix, placing it between 0.80 and 0.83. The share of plastic work
+that becomes heat is measured lower than 0.9 and varies with material and rate [16]; 0.9 is kept here
+because it is the value a thermal model is normally run with.
 
 ## The route
 
@@ -201,9 +243,11 @@ like. A missing term would hold the residual at that size however fine the step 
 
 The model is physical but it is not calibrated to one mill.
 
-- The flow stress, DRX and static softening constants are textbook values for a Nb microalloyed steel,
-  which fix the shape of the result but not the absolute force. One plant force measurement per pass
-  would let them be scaled.
+- The flow stress, DRX and static softening constants come from the C-Mn and Nb-bearing tables of the
+  sources cited above rather than from this grade. They fix the shape of the result but not the absolute
+  force. Taking the C-Mn base set of [5] instead of the set used here lowers the peak stress about 10
+  per cent at this schedule's temperatures and rates, and one plant force measurement per pass would
+  settle the scaling.
 - The through-thickness strain profile is a penetration law with one free constant, not a finite
   element solution, so it carries the trend and not the local shear bands.
 - Lateral spread is a single coefficient and the edge has the same strain state as the centre. Real
@@ -216,31 +260,74 @@ The model is physical but it is not calibrated to one mill.
   gradient a real furnace leaves behind.
 - The critical strain for DRX is sensitive to its grain-size exponent and to the Nb coefficient.
   Changing either moves which passes could recrystallize.
+- The critical strain coefficient in [6] circulates in the literature attached to the peak strain as
+  well as to the critical strain. Read as the peak strain, the critical strain used here is 25 per cent
+  high, which moves which passes recrystallize.
+- Six values in the inputs have no source that states them: the (1 + 40 Nb) factor, the 0.45 k' cap on
+  the friction shear, the descaling coefficient of 5000 W/m²K, the emissivity of 0.80, the Avrami
+  exponent of 2, and the penetration depth constant kappa. They are this notebook's choices, and each is
+  named where it is used.
+- The dynamic recrystallized grain size 1.8e3 Z^-0.15 is quoted from the compiled tables of [11]. The
+  paper that first fitted that form could not be identified.
 
 The notebook lists these in its own closing section, with what it would take to close each one.
 
 ## References
 
 [1] T. von Kármán, "Beitrag zur Theorie des Walzvorganges," *Zeitschrift für Angewandte Mathematik und
-Mechanik*, vol. 5, no. 2, pp. 139-141, 1925.
+Mechanik*, vol. 5, no. 2, pp. 139-141, 1925, doi: 10.1002/zamm.19250050213.
 
-[2] J. H. Hitchcock, "Roll neck bearings," *Proceedings of the ASME Spring Meeting*, 1935, roll
-flattening in the cold and hot rolling of strip.
+[2] J. G. Lenard, M. Pietrzyk, and L. Cser, *Mathematical and Physical Simulation of the Properties of
+Hot Rolled Products*, 1st ed. Amsterdam, The Netherlands: Elsevier, 1999.
 
-[3] C. M. Sellars, "Modelling microstructural development during hot rolling," *Materials Science and
-Technology*, vol. 6, no. 11, pp. 1072-1081, 1990.
+[3] J. H. Hitchcock, "Roll neck bearings," Report of the ASME Special Research Committee on Heavy-Duty
+Anti-Friction Bearings, American Society of Mechanical Engineers, New York, NY, USA, 1935, pp. 33-41,
+roll flattening in the roll gap.
 
-[4] A. Laasraoui and J. J. Jonas, "Prediction of steel flow stresses at high temperatures and strain
-rates," *Metallurgical Transactions A*, vol. 22, no. 7, pp. 1545-1558, 1991.
+[4] C. M. Sellars and W. J. McG. Tegart, "Hot workability," *International Metallurgical Reviews*,
+vol. 17, no. 1, pp. 1-24, 1972, doi: 10.1179/imtlr.1972.17.1.1.
 
-[5] P. D. Hodgson and R. K. Gibbs, "A mathematical model to predict the mechanical properties of hot
-rolled C-Mn and microalloyed steels," *ISIJ International*, vol. 32, no. 12, pp. 1329-1338, 1992.
+[5] A. Laasraoui and J. J. Jonas, "Prediction of steel flow stresses at high temperatures and strain
+rates," *Metallurgical Transactions A*, vol. 22, no. 7, pp. 1545-1558, 1991, doi: 10.1007/BF02667368.
 
-[6] F. Boratto, R. Barbosa, S. Yue, and J. J. Jonas, "Effect of chemical composition on the critical
-temperatures of microalloyed steels," *Proceedings of THERMEC-88*, pp. 383-390, 1988.
+[6] C. M. Sellars, "Modelling microstructural development during hot rolling," *Materials Science and
+Technology*, vol. 6, no. 11, pp. 1072-1081, 1990, doi: 10.1179/mst.1990.6.11.1072.
 
-[7] C. M. Sellars and J. A. Whiteman, "Recrystallization and grain growth in hot rolling," *Metal
-Science*, vol. 13, nos. 3-4, pp. 187-194, 1979.
+[7] B. Dutta and C. M. Sellars, "Effect of composition and process variables on Nb(C, N) precipitation
+in niobium microalloyed austenite," *Materials Science and Technology*, vol. 3, no. 3, pp. 197-206,
+1987, doi: 10.1179/mst.1987.3.3.197.
 
-[8] J. G. Lenard, M. Pietrzyk, and L. Cser, *Mathematical and Physical Simulation of the Properties of
-Hot Rolled Products*. Amsterdam, The Netherlands: Elsevier, 1999.
+[8] J. H. Beynon and C. M. Sellars, "Modelling microstructure and its effects during multipass hot
+rolling," *ISIJ International*, vol. 32, no. 3, pp. 359-367, 1992, doi: 10.2355/isijinternational.32.359.
+
+[9] T. M. Maccagno, J. J. Jonas, and P. D. Hodgson, "Spreadsheet modelling of grain size evolution
+during rod rolling," *ISIJ International*, vol. 36, no. 6, pp. 720-728, 1996,
+doi: 10.2355/isijinternational.36.720.
+
+[10] P. D. Hodgson and R. K. Gibbs, "A mathematical model to predict the mechanical properties of hot
+rolled C-Mn and microalloyed steels," *ISIJ International*, vol. 32, no. 12, pp. 1329-1338, 1992,
+doi: 10.2355/isijinternational.32.1329.
+
+[11] U. Hanoglu and B. Šarler, "Developments towards a multiscale meshless rolling simulation system,"
+*Materials*, vol. 14, no. 15, art. no. 4277, 2021, doi: 10.3390/ma14154277, compiled C-Mn coefficient
+tables.
+
+[12] F. Boratto, R. Barbosa, S. Yue, and J. J. Jonas, "Effect of chemical composition on the critical
+temperatures of microalloyed steels," in *Proc. Int. Conf. on Physical Metallurgy of Thermomechanical
+Processing of Steels and Other Metals (THERMEC-88)*, I. Tamura, Ed. Tokyo, Japan: Iron and Steel
+Institute of Japan, 1988, pp. 383-390.
+
+[13] Dassault Systèmes, *Abaqus Analysis User's Guide*, Section 6.5.4, "Fully coupled thermal-stress
+analysis," inelastic heat fraction, default value 0.9, 2024.
+
+[14] N. Legrand, N. Labbé, D. Weisz-Patrault, A. Ehrlacher, T. Luks, and J. Horsky, "Analysis of roll
+gap heat transfers in hot steel strip rolling through roll temperature sensors and heat transfer
+models," *Key Engineering Materials*, vols. 504-506, pp. 1043-1048, 2012,
+doi: 10.4028/www.scientific.net/KEM.504-506.1043.
+
+[15] K. Speicher, A. Steinboeck, D. Wild, T. Kiefer, and A. Kugi, "An integrated thermal model of hot
+rolling," *Mathematical and Computer Modelling of Dynamical Systems*, vol. 20, no. 1, pp. 66-86, 2014,
+doi: 10.1080/13873954.2013.809364.
+
+[16] G. I. Taylor and H. Quinney, "The latent energy remaining in a metal after cold working,"
+*Proceedings of the Royal Society A*, vol. 143, no. 849, pp. 307-326, 1934.
